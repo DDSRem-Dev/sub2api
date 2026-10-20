@@ -57,6 +57,12 @@ class ReleaseMatrixTest(unittest.TestCase):
         self.assertNotIn({'goos': 'windows', 'goarch': 'arm64'}, full)
         self.assertEqual(release.targets(True), [{'goos': 'linux', 'goarch': 'amd64'}])
 
+    def test_four_part_release_versions_are_supported(self):
+        self.assertEqual(
+            release.archive_name('9.8.7.1', {'goos': 'linux', 'goarch': 'amd64'}),
+            'sub2api_9.8.7.1_linux_amd64.tar.gz',
+        )
+
     def test_leaf_keeps_packaging_and_selects_only_one_target(self):
         original = release.config()
         release.generate_config(argparse.Namespace(mode='build', simple=False, goos='darwin', goarch='arm64', output='leaf.yaml'))
