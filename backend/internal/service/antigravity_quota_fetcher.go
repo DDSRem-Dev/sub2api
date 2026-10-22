@@ -159,11 +159,6 @@ func normalizeTier(raw string) string {
 	}
 }
 
-// buildUsageInfo 将 API 响应转换为 UsageInfo。
-func (f *AntigravityQuotaFetcher) buildUsageInfo(modelsResp *antigravity.FetchAvailableModelsResponse, tierRaw, tierNormalized string, loadResp *antigravity.LoadCodeAssistResponse) *UsageInfo {
-	return f.buildUsageInfoWithSummary(modelsResp, tierRaw, tierNormalized, loadResp, nil)
-}
-
 // buildUsageInfoWithSummary 将 API 响应转换为 UsageInfo，并用官方配额摘要
 // （retrieveUserQuotaSummary）修正真实用量。summary 为 nil 时与历史行为一致。
 func (f *AntigravityQuotaFetcher) buildUsageInfoWithSummary(modelsResp *antigravity.FetchAvailableModelsResponse, tierRaw, tierNormalized string, loadResp *antigravity.LoadCodeAssistResponse, summary *antigravity.QuotaSummaryResponse) *UsageInfo {
