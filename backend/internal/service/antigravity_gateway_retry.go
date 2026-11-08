@@ -705,7 +705,7 @@ urlFallbackLoop:
 
 				// INTERNAL 500 渐进惩罚：3 次重试全部命中特定 500 时递增计数器并惩罚
 				if allAttemptsInternal500 && isAntigravityInternalServerError(resp.StatusCode, respBody) {
-					s.handleInternal500RetryExhausted(p.ctx, p.prefix, p.account)
+					s.handleInternal500ForModel(p.ctx, p.prefix, p.account, resolveFinalAntigravityModelKey(p.ctx, p.account, p.requestedModel))
 				}
 
 				// 404 未找到模型错误：在多端点场景下（如 daily 与 prod 目录差异，#8129），回退到下一个候选端点重试

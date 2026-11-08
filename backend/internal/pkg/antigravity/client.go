@@ -694,34 +694,6 @@ type QuotaSummaryRequest struct {
 	Project string `json:"project,omitempty"`
 }
 
-// QuotaSummaryBucket 官方配额摘要中的单个配额桶（5h / weekly）。
-type QuotaSummaryBucket struct {
-	BucketID          string   `json:"bucketId,omitempty"`
-	Window            string   `json:"window,omitempty"`
-	RemainingFraction *float64 `json:"remainingFraction,omitempty"`
-	RemainingAmount   int64    `json:"remainingAmount,omitempty"`
-	// Disabled 表示该窗口当前不生效：周配额耗尽时上游会把对应的 5h 桶
-	// 置为 disabled=true 且 remainingFraction=1，必须跳过以免展示成 0% 已用。
-	Disabled    bool   `json:"disabled,omitempty"`
-	ResetTime   string `json:"resetTime,omitempty"`
-	DisplayName string `json:"displayName,omitempty"`
-	Description string `json:"description,omitempty"`
-}
-
-// QuotaSummaryGroup 官方配额摘要中的模型组（如 Gemini Models / Claude and GPT models）。
-type QuotaSummaryGroup struct {
-	DisplayName string               `json:"displayName,omitempty"`
-	Description string               `json:"description,omitempty"`
-	Buckets     []QuotaSummaryBucket `json:"buckets,omitempty"`
-}
-
-// QuotaSummaryResponse retrieveUserQuotaSummary 响应。
-// buckets 与 groups 可能同时存在，调用方需要合并两者。
-type QuotaSummaryResponse struct {
-	Buckets []QuotaSummaryBucket `json:"buckets,omitempty"`
-	Groups  []QuotaSummaryGroup  `json:"groups,omitempty"`
-}
-
 // FetchAvailableModelsResponse fetchAvailableModels 响应
 type FetchAvailableModelsResponse struct {
 	Models             map[string]ModelInfo           `json:"models"`
@@ -875,7 +847,12 @@ func isAllowedFetchAvailableModelsRedirectHost(host string) bool {
 // ── Quota Summary API ────────────────────────────────────────────────
 
 // RetrieveUserQuotaSummary 获取官方按模型组聚合的 5h / weekly 配额摘要。
-func (c *Client) RetrieveUserQuotaSummary(ctx context.Context, accessToken, projectID string, bodyLimit int64) (*QuotaSummaryResponse, error) {
+
+func (c *Client) RetrieveUserQuotaSummary(ctx context.Context, accessToken, projectID string, limits ...int64) (*QuotaSummaryResponse, error) {
+	bodyLimit := int64(quotaSummaryBodyLimit)
+	if len(limits) > 0 {
+		bodyLimit = limits[0]
+	}
 	return c.RetrieveUserQuotaSummaryWithURLs(ctx, BaseURLs, accessToken, projectID, bodyLimit)
 }
 
