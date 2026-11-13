@@ -37,6 +37,7 @@ const (
 	PlatformCommandCode = "command_code"
 	// PlatformCline 是 Cline API（多模型聚合，OpenAI 兼容 Chat Completions；按量积分计费，
 	// 另有 ClinePass 订阅）。
+	PlatformArk       = "ark" // 火山方舟：多模型、多模态 API
 	PlatformCline     = "cline"
 	PlatformComposite = "composite"
 )

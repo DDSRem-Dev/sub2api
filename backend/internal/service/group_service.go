@@ -110,7 +110,7 @@ func (s *GroupService) Create(ctx context.Context, req CreateGroupRequest) (*Gro
 	// 该入口固定创建 Anthropic 分组，而按张计费只支持 composite / openai 平台，
 	// 必须拒绝，避免写入永远不生效的开关。
 	if req.ImageCountBilling {
-		return nil, fmt.Errorf("image_count_billing is only supported for composite or openai groups with image generation enabled")
+		return nil, fmt.Errorf("image_count_billing is only supported for composite, openai or ark groups with image generation enabled")
 	}
 	imageRateMultiplier := 1.0
 	if req.ImageRateMultiplier != nil {
@@ -217,12 +217,12 @@ func (s *GroupService) Update(ctx context.Context, id int64, req UpdateGroupRequ
 	}
 	if req.ImageCountBilling != nil {
 		if *req.ImageCountBilling &&
-			(!group.AllowImageGeneration || (group.Platform != PlatformComposite && group.Platform != PlatformOpenAI)) {
-			return nil, fmt.Errorf("image_count_billing requires image generation enabled on composite or openai groups")
+			(!group.AllowImageGeneration || (group.Platform != PlatformComposite && group.Platform != PlatformOpenAI && group.Platform != PlatformArk)) {
+			return nil, fmt.Errorf("image_count_billing requires image generation enabled on composite, openai or ark groups")
 		}
 		group.ImageCountBilling = *req.ImageCountBilling
 	}
-	if !group.AllowImageGeneration || (group.Platform != PlatformComposite && group.Platform != PlatformOpenAI) {
+	if !group.AllowImageGeneration || (group.Platform != PlatformComposite && group.Platform != PlatformOpenAI && group.Platform != PlatformArk) {
 		group.ImageCountBilling = false
 	}
 	if req.ImageRateIndependent != nil {

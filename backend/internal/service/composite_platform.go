@@ -95,6 +95,9 @@ func DetectModelPlatform(model string) (string, bool) {
 	}
 
 	normalized = strings.TrimPrefix(normalized, "models/")
+	if IsArkModel(normalized) {
+		return PlatformArk, true
+	}
 	if slash := strings.IndexByte(normalized, '/'); slash > 0 {
 		provider := strings.TrimSpace(normalized[:slash])
 		rest := strings.TrimSpace(normalized[slash+1:])
@@ -113,6 +116,8 @@ func DetectModelPlatform(model string) (string, bool) {
 			return PlatformZhipu, true
 		case "deepseek":
 			return PlatformDeepseek, true
+		case "ark", "volcengine":
+			return PlatformArk, true
 		case "minimax":
 			return PlatformMiniMax, true
 		case "typesafe", "jev":

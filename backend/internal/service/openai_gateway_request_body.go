@@ -142,7 +142,9 @@ func normalizeDeepSeekResponsesRequestBody(account *Account, body []byte) []byte
 	if account == nil {
 		return body
 	}
-	applyStateless := account.UsesNativeCNResponses()
+	// Ark supports stateful Responses; its translation model rejects store
+	// altogether. Do not inject the stateless CN-provider defaults into Ark.
+	applyStateless := !account.IsArk() && account.UsesNativeCNResponses()
 	applyImages := shouldAliasDeepSeekResponsesInputImages(account)
 	if !applyStateless && !applyImages {
 		return body

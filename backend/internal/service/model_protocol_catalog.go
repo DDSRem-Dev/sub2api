@@ -162,12 +162,21 @@ func parseModelProtocolCatalog(body []byte) (map[string][]string, error) {
 				protocols = append(protocols, protocol)
 			}
 		}
+		// Ark publishes an API-name -> bool map rather than supported_endpoints.
+		for _, endpoint := range []string{"chat/completions", "responses", "messages"} {
+			if gjson.GetBytes(raw, "api_supported").Get(endpoint).Bool() {
+				protocol := modelEndpointProtocol("/" + endpoint)
+				if !slices.Contains(protocols, protocol) {
+					protocols = append(protocols, protocol)
+				}
+			}
+		}
 		if len(protocols) > 0 {
 			models[id] = protocols
 		}
 	}
 	if len(models) == 0 {
-		return nil, fmt.Errorf("model list has no supported_endpoints")
+		return nil, fmt.Errorf("model list has no supported_endpoints or api_supported text protocols")
 	}
 	return models, nil
 }

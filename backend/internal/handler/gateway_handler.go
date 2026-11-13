@@ -1199,6 +1199,10 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 	}
 
 	// Fallback to default models
+	if platform == service.PlatformArk {
+		writeModelsList(c, platform, service.DefaultArkModelIDs())
+		return
+	}
 	if platform == service.PlatformOpenAI {
 		writeModelsListResponse(c, openai.DefaultModels)
 		return
@@ -1341,6 +1345,14 @@ func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *
 }
 
 func writeModelsList(c *gin.Context, platform string, modelIDs []string) {
+	if platform == service.PlatformArk {
+		models := make([]openai.Model, 0, len(modelIDs))
+		for _, id := range modelIDs {
+			models = append(models, openai.Model{ID: id, Object: "model", OwnedBy: platform, Type: "model", DisplayName: id})
+		}
+		writeModelsListResponse(c, models)
+		return
+	}
 	if platform == service.PlatformOpenAI {
 		writeOpenAIModelsList(c, modelIDs)
 		return
@@ -1482,6 +1494,8 @@ func defaultCodexModelIDsForPlatform(platform string) []string {
 
 func defaultModelIDsForPlatform(platform string) []string {
 	switch platform {
+	case service.PlatformArk:
+		return service.DefaultArkModelIDs()
 	case service.PlatformOpenAI:
 		return openai.DefaultModelIDs()
 	case service.PlatformGemini:

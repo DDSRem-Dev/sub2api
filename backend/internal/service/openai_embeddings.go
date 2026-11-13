@@ -62,6 +62,12 @@ func (s *OpenAIGatewayService) ForwardEmbeddings(
 		return nil, fmt.Errorf("invalid base_url: %w", err)
 	}
 	targetURL := buildOpenAIEmbeddingsURL(validatedURL)
+	if strings.HasSuffix(c.Request.URL.Path, "/embeddings/multimodal") {
+		if !account.IsArk() {
+			return nil, fmt.Errorf("multimodal embeddings require an Ark account")
+		}
+		targetURL = buildOpenAIEndpointURL(validatedURL, "/v1/embeddings/multimodal")
+	}
 
 	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 	upstreamReq, err := http.NewRequestWithContext(upstreamCtx, http.MethodPost, targetURL, bytes.NewReader(upstreamBody))

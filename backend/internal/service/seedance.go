@@ -76,7 +76,7 @@ func (s *OpenAIGatewayService) ForwardSeedance(ctx context.Context, c *gin.Conte
 	if !account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilitySeedance) || !endpoint.IsSeedance() {
 		return nil, fmt.Errorf("seedance requires an OpenAI API key account with a custom base URL")
 	}
-	base, err := s.validateUpstreamBaseURL(account.GetCredential("base_url"))
+	base, err := s.validateUpstreamBaseURL(account.GetOpenAIFormatBaseURL())
 	if err != nil {
 		return nil, err
 	}

@@ -95,3 +95,51 @@ func TestSeedanceHandlerLifecycleAndOwnership(t *testing.T) {
 	}
 	require.Len(t, bindings.billed, 1)
 }
+
+func TestArkTaskBindingWithDedicatedAndCompositeGroups(t *testing.T) {
+	for _, groupPlatform := range []string{service.PlatformArk, service.PlatformComposite} {
+		t.Run(groupPlatform, func(t *testing.T) {
+			h, slots, _, upstream := newGrokMediaSlotHandler(t, false, false, service.PlatformArk)
+			var owner int64
+			upstream.call = func(req *http.Request, id int64) (*http.Response, error) {
+				if req.Method == http.MethodPost {
+					owner = id
+				} else {
+					require.Equal(t, owner, id)
+				}
+				return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"id":"ark-3d","status":"running"}`))}, nil
+			}
+			makeContext := func(method string) (*gin.Context, *httptest.ResponseRecorder) {
+				c, w := grokMediaSlotContext(context.Background(), method == http.MethodPost)
+				key, _ := middleware.GetAPIKeyFromContext(c)
+				key.Group.Platform = groupPlatform
+				ctx := c.Request.Context()
+				body := ""
+				if method == http.MethodPost {
+					body = `{"model":"hyper3d-gen2-260112","content":[{"type":"image_url","image_url":{"url":"https://example.com/ref.png"}}]}`
+					if groupPlatform == service.PlatformComposite {
+						ctx = service.WithResolvedTargetPlatform(ctx, service.PlatformArk)
+					}
+				}
+				c.Request = httptest.NewRequest(method, "/api/v3/contents/generations/tasks", strings.NewReader(body)).WithContext(ctx)
+				c.Params = gin.Params{{Key: "task_id", Value: "ark-3d"}}
+				return c, w
+			}
+			for _, method := range []string{http.MethodPost, http.MethodGet, http.MethodDelete} {
+				c, w := makeContext(method)
+				h.SeedanceTasks(c)
+				require.Equal(t, 200, w.Code, w.Body.String())
+				slots.assertReleased(t)
+			}
+			require.Positive(t, owner)
+			c, w := makeContext(http.MethodGet)
+			key, _ := middleware.GetAPIKeyFromContext(c)
+			key.ID++
+			calls := upstream.calls
+			h.SeedanceTasks(c)
+			require.Equal(t, 404, w.Code, w.Body.String())
+			require.Equal(t, calls, upstream.calls)
+			slots.assertReleased(t)
+		})
+	}
+}

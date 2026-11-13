@@ -232,7 +232,17 @@ func (s *OpenAIGatewayService) ParseOpenAIImagesRequest(c *gin.Context, body []b
 		req.bodyHash = hex.EncodeToString(sum[:8])
 	}
 
+	arkRequest := false
+	if key := getAPIKeyFromContext(c); key != nil && key.Group != nil {
+		arkRequest = key.Group.Platform == PlatformArk
+	}
+	if platform, _ := ResolvedTargetPlatformFromContext(c.Request.Context()); platform == PlatformArk {
+		arkRequest = true
+	}
 	mediaType, _, err := mime.ParseMediaType(contentType)
+	if arkRequest && (req.IsEdits() || strings.EqualFold(mediaType, "multipart/form-data")) {
+		return nil, fmt.Errorf("Ark uses JSON /images/generations with image references")
+	}
 	if err == nil && strings.EqualFold(mediaType, "multipart/form-data") {
 		req.Multipart = true
 		if parseErr := parseOpenAIImagesMultipartRequest(body, contentType, req); parseErr != nil {
@@ -253,16 +263,29 @@ func (s *OpenAIGatewayService) ParseOpenAIImagesRequest(c *gin.Context, body []b
 	applyOpenAIImagesDefaults(req)
 	// Composite middleware preserves multipart bodies, including their public
 	// alias. Validate and forward the resolved model without altering uploads.
-	if platform, _ := ResolvedTargetPlatformFromContext(c.Request.Context()); platform == PlatformOpenAI {
+	if platform, _ := ResolvedTargetPlatformFromContext(c.Request.Context()); platform == PlatformOpenAI || platform == PlatformArk {
 		if model, ok := ResolvedUpstreamModelFromContext(c.Request.Context()); ok {
 			req.Model = model
 		}
 	}
-	if err := validateCompatibleImagesModel(req.Model); err != nil {
+
+	if err := validateCompatibleImagesModel(req.Model); err != nil && !arkRequest {
 		return nil, err
 	}
 	req.SizeTier = normalizeOpenAIImageSizeTier(req.Size)
 	req.RequiredCapability = classifyOpenAIImagesCapability(req)
+	if arkRequest {
+		req.RequiredCapability = OpenAIImagesCapabilityAPIKey
+		image := gjson.GetBytes(body, "image")
+		if image.Type == gjson.String {
+			req.InputImageURLs = append(req.InputImageURLs, image.String())
+		}
+		if image.IsArray() {
+			for _, item := range image.Array() {
+				req.InputImageURLs = append(req.InputImageURLs, item.String())
+			}
+		}
+	}
 	return req, nil
 }
 
@@ -590,7 +613,7 @@ func isGeminiCompatibleImageModel(model string) bool {
 }
 
 func validateCompatibleImagesModel(model string) error {
-	if isGeminiCompatibleImageModel(model) {
+	if isGeminiCompatibleImageModel(model) || isArkImageModel(model) {
 		return nil
 	}
 	return validateOpenAIImagesModel(model)
@@ -599,7 +622,7 @@ func validateCompatibleImagesModel(model string) error {
 // RequiredCapabilityForModel also applies the API-key-only fence when channel
 // mapping introduces a compatible provider model after request parsing.
 func (req *OpenAIImagesRequest) RequiredCapabilityForModel(model string) OpenAIImagesCapability {
-	if isGeminiCompatibleImageModel(model) {
+	if isGeminiCompatibleImageModel(model) || isArkImageModel(model) {
 		return OpenAIImagesCapabilityAPIKey
 	}
 	return req.RequiredCapability
@@ -621,7 +644,7 @@ func classifyOpenAIImagesCapability(req *OpenAIImagesRequest) OpenAIImagesCapabi
 	if req == nil {
 		return OpenAIImagesCapabilityNative
 	}
-	if isGeminiCompatibleImageModel(req.Model) {
+	if isGeminiCompatibleImageModel(req.Model) || isArkImageModel(req.Model) {
 		return OpenAIImagesCapabilityAPIKey
 	}
 	if req.ExplicitModel || req.ExplicitSize {
@@ -692,7 +715,11 @@ func (s *OpenAIGatewayService) ForwardImages(
 	}
 	switch account.Type {
 	case AccountTypeAPIKey:
-		return s.forwardOpenAIImagesAPIKey(ctx, c, account, body, parsed, channelMappedModel)
+		result, err := s.forwardOpenAIImagesAPIKey(ctx, c, account, body, parsed, channelMappedModel)
+		if account.IsArk() && result != nil {
+			result.ArkImage = true
+		}
+		return result, err
 	case AccountTypeOAuth, AccountTypeSetupToken:
 		return s.forwardOpenAIImagesOAuth(ctx, c, account, parsed, channelMappedModel)
 	default:
@@ -713,12 +740,15 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	if mapped := strings.TrimSpace(channelMappedModel); mapped != "" {
 		requestModel = mapped
 	}
-	if err := validateCompatibleImagesModel(requestModel); err != nil {
+	if err := validateCompatibleImagesModel(requestModel); err != nil && !account.IsArk() {
 		return nil, err
 	}
 	upstreamModel := account.GetMappedModel(requestModel)
-	if err := validateCompatibleImagesModel(upstreamModel); err != nil {
+	if err := validateCompatibleImagesModel(upstreamModel); err != nil && !(account.IsArk() && strings.HasPrefix(upstreamModel, "ep-")) {
 		return nil, err
+	}
+	if account.IsArk() && ((!isArkImageModel(upstreamModel) && !strings.HasPrefix(upstreamModel, "ep-")) || parsed.IsEdits() || parsed.Multipart) {
+		return nil, fmt.Errorf("Ark images require a Seedream model and JSON /images/generations; reference images belong in the image field")
 	}
 	SetOpsUpstreamModel(c, upstreamModel)
 	logger.LegacyPrintf(
@@ -851,6 +881,9 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		}
 		usage = streamUsage
 		imageCount = resolveBillableImageCount(streamCount, 0, imageCountBillingEnabled(getAPIKeyFromContext(c)))
+		if account.IsArk() {
+			imageCount = streamCount
+		}
 		imageOutputSizes := streamSizes
 		firstTokenMs = ttft
 		return &OpenAIForwardResult{
@@ -876,6 +909,9 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		}
 		usage = nonStreamUsage
 		imageCount = resolveBillableImageCount(nonStreamCount, parsed.N, imageCountBillingEnabled(getAPIKeyFromContext(c)))
+		if account.IsArk() {
+			imageCount = nonStreamCount
+		}
 		return &OpenAIForwardResult{
 			RequestID:        resp.Header.Get("x-request-id"),
 			UpstreamHeaders:  resp.Header,
@@ -908,7 +944,7 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequest(
 	if endpoint == openAIImagesEditsEndpoint {
 		targetURL = openAIImagesEditsURL
 	}
-	baseURL := account.GetOpenAIBaseURL()
+	baseURL := account.GetOpenAIFormatBaseURL()
 	if baseURL != "" {
 		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
 		if err != nil {

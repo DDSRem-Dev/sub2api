@@ -2157,6 +2157,7 @@ func setDefaults() {
 	// Security
 	viper.SetDefault("security.url_allowlist.enabled", false)
 	viper.SetDefault("security.url_allowlist.upstream_hosts", []string{
+		"ark.cn-beijing.volces.com",
 		"api.openai.com",
 		"api.anthropic.com",
 		"api.kimi.com",

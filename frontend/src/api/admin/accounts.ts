@@ -623,6 +623,12 @@ export interface UpstreamModelSyncWarning {
 
 export interface UpstreamModelMetadata {
   id: string
+  domain?: string
+  status?: string
+  api_supported?: Record<string, boolean>
+  output_modalities?: string[]
+  function_calling?: boolean
+  token_limits?: Record<string, unknown>
   display_name?: string
   description?: string
   reasoning?: boolean

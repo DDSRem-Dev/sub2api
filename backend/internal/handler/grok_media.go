@@ -67,6 +67,9 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		h.errorResponse(c, http.StatusUnauthorized, "authentication_error", "Invalid API key")
 		return
 	}
+	if endpoint.IsSeedance() && effectiveAPIKeyPlatform(c, apiKey) == service.PlatformArk {
+		platform = service.PlatformArk
+	}
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {
 		h.errorResponse(c, http.StatusInternalServerError, "api_error", "User context not found")
@@ -192,6 +195,9 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 	sessionHash := h.gatewayService.GenerateExplicitSessionHash(c, sessionSeed)
 	boundLookupAccountID := int64(0)
 	if endpoint.IsVideoLookupRequest() {
+		if endpoint.IsSeedance() && apiKey.Group != nil && apiKey.Group.Platform == service.PlatformComposite {
+			platform = service.PlatformComposite
+		}
 		sessionHash = service.GrokMediaVideoRequestSessionHash(requestID, subject.UserID, apiKey.ID)
 		boundLookupAccountID, err = h.gatewayService.ResolveGrokMediaVideoRequestAccount(
 			c.Request.Context(), apiKey.GroupID, requestID, subject.UserID, apiKey.ID,

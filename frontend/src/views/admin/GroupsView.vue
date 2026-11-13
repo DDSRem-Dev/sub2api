@@ -922,7 +922,7 @@
             <label
               v-if="
                 createForm.allow_image_generation &&
-                (createForm.platform === 'composite' || createForm.platform === 'openai')
+                (['composite', 'openai', 'ark'].includes(createForm.platform))
               "
               class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
             >
@@ -2576,7 +2576,7 @@
             <label
               v-if="
                 editForm.allow_image_generation &&
-                (editForm.platform === 'composite' || editForm.platform === 'openai')
+                (['composite', 'openai', 'ark'].includes(editForm.platform))
               "
               class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
             >
@@ -5582,7 +5582,7 @@ const resetDisabledBatchImagePricing = (
   }
   if (
     !form.allow_image_generation ||
-    (form.platform !== "composite" && form.platform !== "openai")
+    !(["composite", "openai", "ark"].includes(form.platform))
   ) {
     form.image_count_billing = false;
   }

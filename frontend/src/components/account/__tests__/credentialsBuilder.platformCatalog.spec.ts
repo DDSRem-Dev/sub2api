@@ -58,15 +58,15 @@ const legacyZenRules = [
 ]
 
 function legacyIsMultiProtocol(platform: string): boolean {
-  return ['kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go', 'command_code', 'cline'].includes(platform)
+  return ['kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go', 'command_code', 'cline', 'ark'].includes(platform)
 }
 
 function legacySupportsResponses(platform: string): boolean {
-  return ['deepseek', 'kimi', 'minimax', 'opencode_go', 'command_code'].includes(platform)
+  return ['deepseek', 'kimi', 'minimax', 'opencode_go', 'command_code', 'ark'].includes(platform)
 }
 
 function legacyHeaderOverride(platform: string, type: string): boolean {
-  if (['anthropic', 'openai', 'kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go', 'command_code', 'cline'].includes(platform)) {
+  if (['anthropic', 'openai', 'kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go', 'command_code', 'cline', 'ark'].includes(platform)) {
     return type === 'apikey'
   }
   if (platform === 'grok') return type === 'apikey' || type === 'oauth'
@@ -311,5 +311,27 @@ describe('credentialsBuilder picks up newly registered providers from the catalo
     expect(defaultProviderProtocolRules('acme_router', 'standard')).toEqual([
       { pattern: 'claude-*', protocol: 'anthropic' }
     ])
+  })
+})
+
+
+describe('credentialsBuilder built-in Ark provider', () => {
+  it('uses separate native endpoints and model capabilities without Coding Plan probes', () => {
+    expect(providerAccountModes('ark')).toEqual(['payg'])
+    expect(providerRoutesByModel('ark')).toBe(true)
+    expect(providerHasModelCatalog('ark')).toBe(true)
+    expect(defaultCNAdaptiveBaseUrls('ark', 'payg')).toEqual({
+      chat_completions: 'https://ark.cn-beijing.volces.com/api/v3',
+      responses: 'https://ark.cn-beijing.volces.com/api/v3',
+      anthropic: 'https://ark.cn-beijing.volces.com/api/compatible'
+    })
+    const rules = defaultProviderProtocolRules('ark', 'payg')
+    expect(rules.find(rule => rule.pattern === 'kimi-k3-1-pro-261024')).toEqual({
+      pattern: 'kimi-k3-1-pro-261024', protocol: 'chat_completions', extraProtocols: ['responses']
+    })
+    expect(rules.find(rule => rule.pattern === 'doubao-seedream-5-5-261028')).toBeUndefined()
+    const account = { platform: 'ark', type: 'apikey', credentials: { account_mode: 'payg' } }
+    expect(cnQuotaCellVisible(account)).toBe(false)
+    expect(cnBalanceCellVisible(account)).toBe(false)
   })
 })

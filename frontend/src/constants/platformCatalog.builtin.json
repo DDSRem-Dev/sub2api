@@ -278,6 +278,214 @@
           }
         ]
       }
+    },
+    {
+      "id": "ark",
+      "display_name": "火山方舟 (Ark)",
+      "gateway": "openai",
+      "cn_provider": false,
+      "multi_protocol": {
+        "default_mode": "payg",
+        "routing": "by_model",
+        "model_catalog": true,
+        "modes": [
+          {
+            "mode": "payg",
+            "base_urls": {
+              "anthropic": "https://ark.cn-beijing.volces.com/api/compatible",
+              "chat_completions": "https://ark.cn-beijing.volces.com/api/v3",
+              "responses": "https://ark.cn-beijing.volces.com/api/v3"
+            },
+            "protocol_rules": [
+              {
+                "pattern": "kimi-k3-1-pro-261024",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses"
+                ]
+              },
+              {
+                "pattern": "deepseek-v4-1-flash-economy-261017",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "deepseek-v4-1-flash-261017",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "doubao-seed-2-1-pro-260915",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "deepseek-v4-1-flash-260910",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "glm-5-3-flash-260828",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "doubao-seed-2-1-lite-260915",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "deepseek-v4-pro-ga-260813",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "deepseek-v4-flash-ga-260731",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "glm-5-2-260617",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "doubao-seed-evolving",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "doubao-seed-character-260628",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses"
+                ]
+              },
+              {
+                "pattern": "doubao-seed-2-1-turbo-260628",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "doubao-seed-2-1-pro-260628",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "deepseek-v4-pro-260425",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "doubao-seed-2-0-lite-260428",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "doubao-seed-2-0-mini-260428",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "doubao-seed-2-0-code-preview-260215",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "doubao-seed-2-0-pro-260215",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "doubao-seed-character-251128",
+                "protocol": "chat_completions",
+                "protocols": [
+                  "chat_completions",
+                  "responses",
+                  "anthropic"
+                ]
+              },
+              {
+                "pattern": "doubao-seed-translation-250915",
+                "protocol": "responses",
+                "protocols": [
+                  "responses"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "composite_precedence": [
@@ -293,6 +501,7 @@
     "opencode_go",
     "typesafe",
     "command_code",
-    "cline"
+    "cline",
+    "ark"
   ]
 }

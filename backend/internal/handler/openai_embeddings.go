@@ -71,8 +71,12 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 		return
 	}
 	reqModel := modelResult.String()
+	capability := service.OpenAIEndpointCapabilityEmbeddings
+	if strings.HasSuffix(c.Request.URL.Path, "/embeddings/multimodal") {
+		capability = service.OpenAIEndpointCapabilityEmbeddingsMultimodal
+	}
 	ensureCompositeTargetPlatform(c, apiKey, reqModel)
-	if !compositeTargetPlatformAllowed(c, apiKey, reqModel, service.PlatformOpenAI) {
+	if !compositeTargetPlatformAllowed(c, apiKey, reqModel, service.PlatformOpenAI, service.PlatformArk) {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by this OpenAI-compatible endpoint for composite groups")
 		return
 	}
@@ -143,10 +147,11 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 			forwardModel,
 			failedAccountIDs,
 			service.OpenAIUpstreamTransportHTTPSSE,
-			service.OpenAIEndpointCapabilityEmbeddings,
+			capability,
 			false,
 			false,
 			true,
+			effectiveAPIKeyPlatform(c, apiKey),
 		)
 		if err != nil {
 			if failoverClientGone(c) {

@@ -88,6 +88,20 @@ func (p *ProviderProfile) SupportsProtocol(mode, protocol string) bool {
 // 上游协议分流方式、Responses 路径约定与 IsMultiProtocolAPIKeyProvider 归属。
 // 默认端点需与前端 credentialsBuilder.ts 的预设保持一致。
 var providerProfiles = map[string]*ProviderProfile{
+	PlatformArk: {
+		Platform:         PlatformArk,
+		DefaultMode:      AccountModePayG,
+		Routing:          ProviderRoutingByModel,
+		DefaultTestModel: "doubao-seed-2-1-lite-260915",
+		ModelCatalog:     true,
+		Modes: map[string]ProviderEndpoints{
+			AccountModePayG: {BaseURLs: map[string]string{
+				APIProtocolChatCompletions: DefaultArkBaseURL,
+				APIProtocolResponses:       DefaultArkBaseURL,
+				APIProtocolAnthropic:       DefaultArkAnthropicBaseURL,
+			}, ProtocolRules: DefaultArkProtocolRules()},
+		},
+	},
 	PlatformKimi: {
 		Platform:    PlatformKimi,
 		DefaultMode: AccountModePayG,

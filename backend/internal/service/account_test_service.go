@@ -384,6 +384,18 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 		return nil
 	}
 
+	if account.IsArk() && account.Type == AccountTypeAPIKey {
+		mappedModel := account.GetMappedModel(modelID)
+		metadata, _ := account.GetUpstreamModelMetadata(mappedModel)
+		if isArkImageModel(mappedModel) || metadata.Domain == "ImageGeneration" {
+			imagePrompt := strings.TrimSpace(prompt)
+			if imagePrompt == "" {
+				imagePrompt = defaultOpenAIImageTestPrompt
+			}
+			return s.testOpenAIImageAPIKey(c, ctx, account, mappedModel, imagePrompt)
+		}
+	}
+
 	// Route to platform-specific test method
 	// 按入站协议分流的多协议供应商（国产厂商等）：按账号协议选测试路径。
 	if account.RoutesProtocolByInbound() {
@@ -3030,12 +3042,12 @@ func (s *AccountTestService) processOpenAIStream(c *gin.Context, body io.Reader)
 
 // testOpenAIImageAPIKey tests OpenAI image generation using an API Key account.
 func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.Context, account *Account, modelID, prompt string) error {
-	authToken := account.GetOpenAIApiKey()
+	authToken := account.GetOpenAIProtocolAPIKey()
 	if authToken == "" {
 		return s.sendErrorAndEnd(c, "No API key available")
 	}
 
-	baseURL := account.GetOpenAIBaseURL()
+	baseURL := account.GetOpenAIFormatBaseURL()
 	if baseURL == "" {
 		baseURL = "https://api.openai.com"
 	}
@@ -3062,6 +3074,11 @@ func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.C
 	}
 	if size := account.OpenAIImageTestSize(); size != "" {
 		payload["size"] = size
+	}
+	if account.IsArk() {
+		delete(payload, "n")
+		payload["size"] = "2K"
+		payload["response_format"] = "url"
 	}
 	payloadBytes, _ := json.Marshal(payload)
 
@@ -3100,6 +3117,7 @@ func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.C
 	var result struct {
 		Data []struct {
 			B64JSON       string `json:"b64_json"`
+			URL           string `json:"url"`
 			RevisedPrompt string `json:"revised_prompt"`
 		} `json:"data"`
 	}
@@ -3115,7 +3133,9 @@ func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.C
 		if item.RevisedPrompt != "" {
 			s.sendEvent(c, TestEvent{Type: "content", Text: item.RevisedPrompt})
 		}
-		if item.B64JSON != "" {
+		if item.URL != "" {
+			s.sendEvent(c, TestEvent{Type: "image", ImageURL: item.URL})
+		} else if item.B64JSON != "" {
 			s.sendEvent(c, TestEvent{
 				Type:     "image",
 				ImageURL: "data:image/png;base64," + item.B64JSON,

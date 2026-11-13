@@ -312,7 +312,7 @@ func (s *OpenAIGatewayService) BindGrokMediaVideoRequestAccount(
 	}
 	// Video jobs may complete well after WS sticky TTL (default 1h). Bind at least
 	// as long as the pending-billing snapshot so late status/content polls resolve.
-	ttl := grokVideoPendingBillingTTL(s.cfg)
+	ttl := mediaTaskPendingTTL(s.cfg, requestID)
 	if s.cfg != nil && s.cfg.Gateway.OpenAIWS.StickySessionTTLSeconds > 0 {
 		if sticky := time.Duration(s.cfg.Gateway.OpenAIWS.StickySessionTTLSeconds) * time.Second; sticky > ttl {
 			ttl = sticky
@@ -352,6 +352,13 @@ func (s *OpenAIGatewayService) SelectMediaVideoRequestAccount(
 	decision := OpenAIAccountScheduleDecision{Layer: openAIAccountScheduleLayerSessionSticky}
 	if accountID <= 0 || strings.TrimSpace(sessionHash) == "" {
 		return nil, decision, ErrNoAvailableAccounts
+	}
+	if platform == PlatformComposite {
+		account, err := s.accountRepo.GetByID(ctx, accountID)
+		if err != nil || account == nil || (account.Platform != PlatformArk && account.Platform != PlatformOpenAI) {
+			return nil, decision, ErrNoAvailableAccounts
+		}
+		platform = account.Platform
 	}
 	ctx = s.withOpenAIGroupPrivacyRequirement(WithOpenAIProfitControlSuppressed(ctx), groupID)
 	scheduler := &defaultOpenAIAccountScheduler{service: s}
@@ -441,6 +448,22 @@ func grokVideoBilledClaimTTL(cfg *config.Config) time.Duration {
 	return 48 * time.Hour
 }
 
+// Ark draft tasks live for 14 days. Keep ownership and billing snapshots for
+// the same window, and dedup claims longer. Other providers retain their TTLs.
+func mediaTaskPendingTTL(cfg *config.Config, requestID string) time.Duration {
+	if strings.HasPrefix(requestID, "seedance:") {
+		return 15 * 24 * time.Hour
+	}
+	return grokVideoPendingBillingTTL(cfg)
+}
+
+func mediaTaskClaimTTL(cfg *config.Config, requestID string) time.Duration {
+	if strings.HasPrefix(requestID, "seedance:") {
+		return 16 * 24 * time.Hour
+	}
+	return grokVideoBilledClaimTTL(cfg)
+}
+
 // StoreGrokVideoPendingBilling persists create-time billing params for deferred status billing.
 func (s *OpenAIGatewayService) StoreGrokVideoPendingBilling(
 	ctx context.Context,
@@ -475,7 +498,7 @@ func (s *OpenAIGatewayService) StoreGrokVideoPendingBilling(
 	if err != nil {
 		return err
 	}
-	return s.cache.SetGrokVideoPendingBilling(ctx, key, payload, grokVideoPendingBillingTTL(s.cfg))
+	return s.cache.SetGrokVideoPendingBilling(ctx, key, payload, mediaTaskPendingTTL(s.cfg, requestID))
 }
 
 // LoadGrokVideoPendingBilling returns the create-time snapshot (may be nil on miss).
@@ -516,7 +539,7 @@ func (s *OpenAIGatewayService) ClaimGrokVideoBilling(
 	if key == "" {
 		return false, fmt.Errorf("grok video billing claim key is invalid")
 	}
-	return s.cache.ClaimGrokVideoBilled(ctx, key, grokVideoBilledClaimTTL(s.cfg))
+	return s.cache.ClaimGrokVideoBilled(ctx, key, mediaTaskClaimTTL(s.cfg, requestID))
 }
 
 // ReleaseGrokVideoBilling clears a claim after a failed durable RecordUsage so a

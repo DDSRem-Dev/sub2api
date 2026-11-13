@@ -1,4 +1,5 @@
 export const imagePricingPlatforms = new Set([
+  "ark",
   "antigravity",
   "composite",
   "gemini",
@@ -39,6 +40,7 @@ const defaultImagePricePlaceholders: Record<
     image_price_2k: "0.201",
     image_price_4k: "0.268",
   },
+  ark: { image_price_1k: "", image_price_2k: "", image_price_4k: "" },
   grok: {
     image_price_1k: "0.02",
     image_price_2k: "0.02",

@@ -33,6 +33,12 @@ const (
 )
 
 type UpstreamModelMetadata struct {
+	TokenLimits              map[string]json.RawMessage `json:"token_limits,omitempty"`
+	Domain                   string                     `json:"domain,omitempty"`
+	Status                   string                     `json:"status,omitempty"`
+	SupportedAPIs            map[string]bool            `json:"api_supported,omitempty"`
+	OutputModalities         []string                   `json:"output_modalities,omitempty"`
+	FunctionCalling          *bool                      `json:"function_calling,omitempty"`
 	ID                       string                     `json:"id"`
 	DisplayName              string                     `json:"display_name,omitempty"`
 	Description              string                     `json:"description,omitempty"`
@@ -278,6 +284,9 @@ func (s *AccountTestService) SyncUpstreamModelCatalog(ctx context.Context, accou
 			catalog.Metadata = directMetadata
 		}
 	}
+	if account != nil && account.IsArk() {
+		return s.persistArkModelCatalog(ctx, account, catalog)
+	}
 
 	// Capability enrichment also covers concrete model_mapping targets. Admins may
 	// whitelist models that the live /models list omitted; those still need registry
@@ -434,6 +443,9 @@ func upstreamCatalogNeedsRegistry(models []string, metadata map[string]UpstreamM
 }
 
 func upstreamModelMetadataIsUseful(metadata UpstreamModelMetadata) bool {
+	if metadata.Domain != "" || metadata.Status != "" || len(metadata.SupportedAPIs) > 0 || len(metadata.OutputModalities) > 0 || metadata.FunctionCalling != nil || len(metadata.TokenLimits) > 0 {
+		return true
+	}
 	return strings.TrimSpace(metadata.DisplayName) != "" ||
 		strings.TrimSpace(metadata.Description) != "" ||
 		metadata.Reasoning != nil ||
@@ -1528,6 +1540,7 @@ func extractUpstreamModelCatalog(body []byte, grok bool) ([]string, map[string]U
 		}
 		models = append(models, modelID)
 		entry := upstreamMetadataFromCapabilityEntry(modelID, capability)
+		applyArkModelMetadata(raw, &entry)
 		var fields map[string]json.RawMessage
 		if err := json.Unmarshal(raw, &fields); err == nil {
 			entry.CodexToolCapabilities = make(map[string]json.RawMessage)

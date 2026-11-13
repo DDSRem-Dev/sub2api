@@ -1453,6 +1453,16 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 		}
 
 		mapping := acc.GetModelMapping()
+		// Ark's synced catalog is authoritative for unrestricted accounts. Explicit
+		// mappings remain the public allowlist, including operator-defined aliases.
+		if acc.IsArk() && len(mapping) == 0 {
+			if snapshot := acc.GetUpstreamModelMetadataSnapshot(); snapshot != nil {
+				for model := range snapshot.Models {
+					modelSet[model] = struct{}{}
+					hasAnyMapping = true
+				}
+			}
+		}
 		for model := range mapping {
 			// Accounts pulled in through mixed scheduling only contribute the
 			// models that belong to the listing platform (e.g. an antigravity

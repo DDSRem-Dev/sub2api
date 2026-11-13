@@ -233,6 +233,7 @@ type OpenAIUsage struct {
 
 // OpenAIForwardResult represents the result of forwarding
 type OpenAIForwardResult struct {
+	ArkImage   bool // Ark image requests use operator pricing, never GPT image defaults.
 	RequestID  string
 	ResponseID string
 	// UpstreamHeaders 是直接上游的响应头，用于按账户配置解析上游请求标识。

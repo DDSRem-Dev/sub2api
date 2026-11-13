@@ -591,6 +591,20 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 	pricingAt time.Time,
 ) (*CostBreakdown, error) {
 	billingModel := firstUsageBillingModel(billingModels)
+	if result != nil && result.ArkImage {
+		// No successful images means no image charge (e.g. all SSE items failed).
+		if result.ImageCount == 0 {
+			return &CostBreakdown{BillingMode: string(BillingModeImage)}, nil
+		}
+		apiKey = s.apiKeyWithFreshGroupMediaPricing(ctx, apiKey)
+		resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey)
+		hasImagePrice := resolved != nil && (resolved.Mode == BillingModeImage || resolved.Mode == BillingModePerRequest)
+		if !hasImagePrice && !apiKeyHasConfiguredImagePrice(apiKey, NormalizeImageBillingTierOrDefault(result.ImageSize)) {
+			return nil, fmt.Errorf("%w: configure Ark image pricing for %s", ErrModelPricingUnavailable, billingModel)
+		}
+		return s.calculateOpenAIImageCost(ctx, billingModel, apiKey, result, imageMultiplier), nil
+	}
+
 	if result != nil && result.WebSearchCalls > 0 {
 		// Codex alpha/search 网页搜索按次计费：上游不返回 usage/token 字段，单价只取
 		// 分组覆盖价（nil 时默认 0.01 = 官方 $10/1000 次），不参与渠道级模型定价。

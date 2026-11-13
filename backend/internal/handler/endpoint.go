@@ -19,6 +19,7 @@ const (
 	EndpointSystemOne            = "/v1/systemone"
 	EndpointChatCompletions      = "/v1/chat/completions"
 	EndpointEmbeddings           = "/v1/embeddings"
+	EndpointEmbeddingsMultimodal = "/v1/embeddings/multimodal"
 	EndpointAlphaSearch          = "/v1/alpha/search"
 	EndpointResponses            = "/v1/responses"
 	EndpointResponsesCompact     = "/v1/responses/compact"
@@ -89,11 +90,13 @@ func NormalizeInboundEndpoint(path string) string {
 		return EndpointSeedanceTasks
 	case strings.Contains(path, EndpointResponsesInputTokens) || isResponsesInputTokensAliasPath(path):
 		return EndpointResponsesInputTokens
-	case strings.Contains(path, EndpointEmbeddings):
+	case strings.Contains(path, "/embeddings/multimodal"):
+		return EndpointEmbeddingsMultimodal
+	case strings.Contains(path, "/embeddings"):
 		return EndpointEmbeddings
 	case strings.Contains(path, EndpointAlphaSearch) || isBareOrSubpathOf(strings.TrimRight(path, "/"), "/alpha/search") || isBareOrSubpathOf(strings.TrimRight(path, "/"), "/backend-api/codex/alpha/search"):
 		return EndpointAlphaSearch
-	case strings.Contains(path, EndpointChatCompletions):
+	case strings.Contains(path, "/chat/completions"):
 		return EndpointChatCompletions
 	case strings.Contains(path, EndpointMessages):
 		return EndpointMessages
@@ -207,7 +210,7 @@ func DeriveUpstreamEndpoint(inbound, rawRequestPath, platform string) string {
 
 	switch platform {
 	case service.PlatformOpenAI, service.PlatformGrok:
-		if inbound == EndpointEmbeddings || inbound == EndpointAlphaSearch || inbound == EndpointResponsesInputTokens || inbound == EndpointImagesGenerations || inbound == EndpointImagesEdits || inbound == EndpointVideosGenerations || inbound == EndpointVideosEdits || inbound == EndpointVideosExtensions || inbound == EndpointVideos {
+		if inbound == EndpointEmbeddings || inbound == EndpointEmbeddingsMultimodal || inbound == EndpointAlphaSearch || inbound == EndpointResponsesInputTokens || inbound == EndpointImagesGenerations || inbound == EndpointImagesEdits || inbound == EndpointVideosGenerations || inbound == EndpointVideosEdits || inbound == EndpointVideosExtensions || inbound == EndpointVideos {
 			return inbound
 		}
 		// OpenAI forwards everything to the Responses API.

@@ -1917,6 +1917,9 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 	if a == nil {
 		return false
 	}
+	if a.IsArk() && a.Type == AccountTypeAPIKey && (capability == OpenAIEndpointCapabilitySeedance || capability == OpenAIEndpointCapabilityEmbeddingsMultimodal) {
+		return true
+	}
 	if capability == OpenAIEndpointCapabilitySeedance {
 		configured, _ := a.openAIEndpointCapabilitySet()
 		return configured["seedance"] && a.Platform == PlatformOpenAI && a.Type == AccountTypeAPIKey &&
@@ -2102,6 +2105,9 @@ func (a *Account) openAIEndpointCapabilitySet() (map[string]bool, bool) {
 }
 
 func (a *Account) SupportsOpenAIImageCapability(capability OpenAIImagesCapability) bool {
+	if a.IsArk() {
+		return a.Type == AccountTypeAPIKey && (capability == "" || capability == OpenAIImagesCapabilityAPIKey)
+	}
 	if capability == "" {
 		return true
 	}

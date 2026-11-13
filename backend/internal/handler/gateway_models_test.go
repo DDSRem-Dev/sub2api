@@ -1890,3 +1890,36 @@ func TestGatewayModels_CompositeCodexRouteLookupErrorKeepsFallback(t *testing.T)
 		})
 	}
 }
+
+func TestGatewayArkModelsUseCatalogAndNeverClaudeFallback(t *testing.T) {
+	const groupID int64 = 18089
+	for _, scenario := range []string{"bootstrap", "synced", "mapped"} {
+		t.Run(scenario, func(t *testing.T) {
+			account := service.Account{ID: 1, Platform: service.PlatformArk, Type: service.AccountTypeAPIKey, Credentials: map[string]any{}}
+			want := service.DefaultArkModelIDs()
+			if scenario != "bootstrap" {
+				account.SetUpstreamModelMetadataSnapshot(service.UpstreamModelMetadataSnapshot{Models: map[string]service.UpstreamModelMetadata{"ark-future-model": {ID: "ark-future-model", Domain: "LLM"}}})
+				want = []string{"ark-future-model"}
+			}
+			if scenario == "mapped" {
+				account.Credentials["model_mapping"] = map[string]any{"public-alias": "ark-future-model"}
+				want = []string{"public-alias"}
+			}
+			h := newGatewayModelsHandlerForTest(&gatewayModelsAccountRepoStub{byGroup: map[int64][]service.Account{groupID: {account}}})
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+			c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{Group: &service.Group{ID: groupID, Platform: service.PlatformArk}})
+			h.Models(c)
+			require.Equal(t, http.StatusOK, rec.Code)
+			var got gatewayModelsResponseForTest
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+			require.Equal(t, "list", got.Object)
+			require.ElementsMatch(t, want, modelIDsForTest(got.Data))
+			for _, model := range got.Data {
+				require.Equal(t, "model", model.Object)
+				require.Equal(t, "ark", model.OwnedBy)
+			}
+		})
+	}
+}

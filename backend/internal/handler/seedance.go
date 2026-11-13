@@ -21,8 +21,8 @@ func (h *OpenAIGatewayHandler) SeedanceTasks(c *gin.Context) {
 		}
 	}
 	key, ok := middleware.GetAPIKeyFromContext(c)
-	if !ok || key.Group == nil || (key.Group.Platform != service.PlatformOpenAI && key.Group.Platform != service.PlatformComposite) {
-		h.errorResponse(c, http.StatusForbidden, "permission_error", "Seedance requires an OpenAI or composite group")
+	if !ok || key.Group == nil || (key.Group.Platform != service.PlatformOpenAI && key.Group.Platform != service.PlatformComposite && key.Group.Platform != service.PlatformArk) {
+		h.errorResponse(c, http.StatusForbidden, "permission_error", "Ark content tasks require an Ark, OpenAI or composite group")
 		return
 	}
 	endpoint := service.SeedanceEndpointCreate

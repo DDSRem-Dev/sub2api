@@ -279,6 +279,8 @@ func compositeRouteFromInput(groupID int64, input CompositeRouteInput) (*Composi
 
 func defaultModelsListCandidateIDs(platform string) []string {
 	switch platform {
+	case PlatformArk:
+		return DefaultArkModelIDs()
 	case PlatformOpenAI:
 		return openai.DefaultModelIDs()
 	case PlatformGemini:
@@ -535,7 +537,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	allowImageGeneration := input.AllowImageGeneration || DefaultAllowImageGenerationForPlatform(platform)
 	allowBatchImageGeneration := input.AllowBatchImageGeneration && allowImageGeneration && platform == PlatformGemini
 	imageCountBilling := input.ImageCountBilling && allowImageGeneration &&
-		(platform == PlatformComposite || platform == PlatformOpenAI)
+		(platform == PlatformComposite || platform == PlatformOpenAI || platform == PlatformArk)
 
 	// 如果指定了复制账号的源分组，先获取账号 ID 列表
 	var accountIDsToCopy []int64
@@ -851,7 +853,7 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if input.ImageCountBilling != nil {
 		group.ImageCountBilling = *input.ImageCountBilling
 	}
-	if !group.AllowImageGeneration || (group.Platform != PlatformComposite && group.Platform != PlatformOpenAI) {
+	if !group.AllowImageGeneration || (group.Platform != PlatformComposite && group.Platform != PlatformOpenAI && group.Platform != PlatformArk) {
 		group.ImageCountBilling = false
 	}
 	if input.ImageRateIndependent != nil {
