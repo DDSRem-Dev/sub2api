@@ -241,7 +241,7 @@ func (s *OpenAIGatewayService) ParseOpenAIImagesRequest(c *gin.Context, body []b
 	}
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if arkRequest && (req.IsEdits() || strings.EqualFold(mediaType, "multipart/form-data")) {
-		return nil, fmt.Errorf("Ark uses JSON /images/generations with image references")
+		return nil, fmt.Errorf("use JSON /images/generations with image references for Ark")
 	}
 	if err == nil && strings.EqualFold(mediaType, "multipart/form-data") {
 		req.Multipart = true
@@ -744,11 +744,11 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		return nil, err
 	}
 	upstreamModel := account.GetMappedModel(requestModel)
-	if err := validateCompatibleImagesModel(upstreamModel); err != nil && !(account.IsArk() && strings.HasPrefix(upstreamModel, "ep-")) {
+	if err := validateCompatibleImagesModel(upstreamModel); err != nil && (!account.IsArk() || !strings.HasPrefix(upstreamModel, "ep-")) {
 		return nil, err
 	}
 	if account.IsArk() && ((!isArkImageModel(upstreamModel) && !strings.HasPrefix(upstreamModel, "ep-")) || parsed.IsEdits() || parsed.Multipart) {
-		return nil, fmt.Errorf("Ark images require a Seedream model and JSON /images/generations; reference images belong in the image field")
+		return nil, fmt.Errorf("image requests for Ark require a Seedream model and JSON /images/generations; reference images belong in the image field")
 	}
 	SetOpsUpstreamModel(c, upstreamModel)
 	logger.LegacyPrintf(
