@@ -1347,7 +1347,10 @@ func TestAntigravityCompatGeminiThinkingConfig(t *testing.T) {
 		cfg := gjson.GetBytes(upstream.requestBodies[0], "request.generationConfig.thinkingConfig")
 		require.True(t, cfg.Get("includeThoughts").Bool(), "thinkingConfig=%s", cfg.Raw)
 		require.False(t, cfg.Get("thinkingLevel").Exists(), "tier-suffixed model must not set thinkingLevel: %s", cfg.Raw)
-		require.False(t, cfg.Get("thinkingBudget").Exists(), "tier-suffixed model must not set thinkingBudget: %s", cfg.Raw)
+		// This fork reserves a fixed thinking budget and visible-output headroom
+		// for Antigravity, including models that encode their tier in the name.
+		require.Equal(t, int64(10001), cfg.Get("thinkingBudget").Int(), "thinkingConfig=%s", cfg.Raw)
+		require.GreaterOrEqual(t, gjson.GetBytes(upstream.requestBodies[0], "request.generationConfig.maxOutputTokens").Int(), int64(10001+antigravityThinkingHeadroom))
 	})
 
 	t.Run("streaming chat completions tier suffix enables includeThoughts without thinkingLevel", func(t *testing.T) {
@@ -1416,7 +1419,7 @@ func TestAntigravityCompatGeminiThinkingConfig(t *testing.T) {
 		require.True(t, cfg.Get("includeThoughts").Bool(), "thinkingConfig=%s", cfg.Raw)
 	})
 
-	t.Run("non-streaming responses do not force includeThoughts", func(t *testing.T) {
+	t.Run("non-streaming responses preserve Antigravity thinking budget and headroom", func(t *testing.T) {
 		upstream := &queuedHTTPUpstreamStub{responses: []*http.Response{antigravityCompatSuccessResponse()}}
 		svc := newAntigravityCompatService(config.GatewayConfig{MaxLineSize: defaultMaxLineSize}, upstream)
 		account := newAntigravityCompatAccount(AccountTypeOAuth)
@@ -1430,7 +1433,10 @@ func TestAntigravityCompatGeminiThinkingConfig(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, rec.Code)
 		require.Len(t, upstream.requestBodies, 1)
-		require.False(t, gjson.GetBytes(upstream.requestBodies[0], "request.generationConfig.thinkingConfig.includeThoughts").Bool())
+		cfg := gjson.GetBytes(upstream.requestBodies[0], "request.generationConfig.thinkingConfig")
+		require.True(t, cfg.Get("includeThoughts").Bool())
+		require.Equal(t, int64(10001), cfg.Get("thinkingBudget").Int())
+		require.GreaterOrEqual(t, gjson.GetBytes(upstream.requestBodies[0], "request.generationConfig.maxOutputTokens").Int(), int64(10001+antigravityThinkingHeadroom))
 	})
 }
 
