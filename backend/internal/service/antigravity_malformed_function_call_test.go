@@ -111,7 +111,7 @@ func TestAntigravityCompatRequestScopedEmptyStreamAfterKeepalive(t *testing.T) {
 					_, err = handleAntigravityCompatEmptyStream(c, session)
 				}
 				require.True(t, IsAntigravityCompatCommittedNoContent(err), "got %v", err)
-				require.True(t, IsResponseCommitted(c))
+					require.True(t, c.Writer.Written())
 				require.Contains(t, recorder.Body.String(), `"message":"`+tc.name+`"`)
 			})
 		}
