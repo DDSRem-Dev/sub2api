@@ -82,6 +82,42 @@ func TestAntigravityCompatMalformedStreamFinishReturnsRequestScopedError(t *test
 	require.Equal(t, GatewayFailureReason("antigravity_malformed_function_call"), failoverErr.Reason)
 }
 
+func TestAntigravityCompatRequestScopedEmptyStreamAfterKeepalive(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		line string
+	}{
+		{"malformed_function_call", antigravityMalformedStreamLine},
+		{"thinking_without_content", `data: {"response":{"candidates":[{"content":{"role":"model","parts":[{"thoughtSignature":"sig-only"}]},"finishReason":"STOP"}]}}`},
+	} {
+		for _, finish := range []bool{false, true} {
+			path := "handler"
+			if finish {
+				path = "finish"
+			}
+			t.Run(tc.name+"/"+path, func(t *testing.T) {
+				c, recorder := newAntigravityCompatContext(http.MethodPost, "/v1/chat/completions", nil)
+				writer := newAntigravityClientWriter(c.Writer, c.Writer, "test")
+				start := time.Now().Add(-20 * time.Second)
+				session := newAntigravityCompatStreamSession("gemini-3.8-flash-high", start,
+					newAntigravityChatStreamAdapter("gemini-3.8-flash-high", false), writer)
+				session.consume(tc.line)
+				session.writePreContentKeepalive(start.Add(15 * time.Second))
+
+				var err error
+				if finish {
+					_, err = session.finish()
+				} else {
+					_, err = handleAntigravityCompatEmptyStream(c, session)
+				}
+				require.True(t, IsAntigravityCompatCommittedNoContent(err), "got %v", err)
+				require.True(t, IsResponseCommitted(c))
+				require.Contains(t, recorder.Body.String(), `"message":"`+tc.name+`"`)
+			})
+		}
+	}
+}
+
 func TestAntigravityCompatGenericEmptyStreamStillTempsUnschedules(t *testing.T) {
 	session := &antigravityCompatStreamSession{processor: antigravity.NewStreamingProcessor("gemini-3.8-flash-high")}
 	err := session.emptyStreamFailoverError()
