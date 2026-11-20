@@ -48,17 +48,14 @@ func (f *AntigravityQuotaFetcher) CanFetch(account *Account) bool {
 	return accessToken != ""
 }
 
-// resolveAntigravityQuotaBaseURLs 返回用量查询使用的有序端点队列。
-//
-// 与转发侧保持一致（参考 Antigravity Tools / Antigravity-Manager 实现）：
-//  1. 显式环境变量 GATEWAY_ANTIGRAVITY_FORWARD_BASE_URL (daily/prod) 优先级最高；
-//  2. 默认采用 antigravity.ForwardBaseURLs() 顺序（优先 daily，其次 prod），
-//     确保配额探测端点与实际请求转发端点一致，避免因生产端点配额不同步导致配额恒为 0 或限流感知失效。
+// resolveAntigravityQuotaBaseURLs 只返回账号首选转发端点。
+// daily 与 prod 的配额独立计算，查询失败时不能回退到另一端点的配额。
 func resolveAntigravityQuotaBaseURLs(account *Account) []string {
-	// 配额查询必须与实际转发使用同一端点策略：付费账号优先 daily，
-	// 免费账号只访问 prod，避免把免费 OAuth token 发往 daily 端点后被
-	// 上游判定为无效 bearer token。环境变量覆盖也由同一 helper 处理。
-	return resolveAntigravityForwardBaseURLs(account)
+	baseURL := resolveAntigravityForwardBaseURL(account)
+	if baseURL == "" {
+		return nil
+	}
+	return []string{baseURL}
 }
 
 // FetchQuota 获取 Antigravity 账户额度信息
@@ -72,10 +69,13 @@ func (f *AntigravityQuotaFetcher) FetchQuota(ctx context.Context, account *Accou
 	}
 
 	baseURLs := resolveAntigravityQuotaBaseURLs(account)
+	if len(baseURLs) == 0 {
+		return nil, errors.New("no antigravity base url configured")
+	}
 	bodyLimit := resolveModelsListReadLimit(f.cfg)
 
-	// 调用 API 获取模型目录与配额；Google One / 付费账号优先 daily
-	modelsResp, modelsRaw, err := client.FetchAvailableModelsWithURLs(ctx, baseURLs, accessToken, projectID, bodyLimit)
+	// 模型目录与配额固定使用账号首选转发端点；Google One / 付费账号使用 daily。
+	modelsResp, modelsRaw, err := client.FetchAvailableModelsFromURL(ctx, baseURLs[0], accessToken, projectID, bodyLimit)
 	if err != nil {
 		// 403 Forbidden: 不报错，返回 is_forbidden 标记
 		var forbiddenErr *antigravity.ForbiddenError
@@ -106,7 +106,7 @@ func (f *AntigravityQuotaFetcher) FetchQuota(ctx context.Context, account *Accou
 	// 真实用量只在配额摘要里；缺少该步时 Google One / 付费账号会永远显示 0% 用量。
 	var quotaSummary *antigravity.QuotaSummaryResponse
 	if summary, summaryErr := client.RetrieveUserQuotaSummaryWithURLs(ctx, baseURLs, accessToken, projectID, bodyLimit); summaryErr != nil {
-		slog.Warn("failed to fetch antigravity quota summary", "error", summaryErr)
+		slog.Warn("failed to fetch antigravity quota summary", "account_id", account.ID, "error", summaryErr)
 	} else {
 		quotaSummary = summary
 	}

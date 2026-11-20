@@ -72,13 +72,13 @@ func TestResolveAntigravityQuotaBaseURLs(t *testing.T) {
 	withAntigravityQuotaBaseURLs(t, "https://prod.example", "https://daily.example")
 
 	paid := &Account{Platform: PlatformAntigravity, Credentials: map[string]any{"plan_type": "Pro"}}
-	require.Equal(t, []string{"https://daily.example", "https://prod.example"}, resolveAntigravityQuotaBaseURLs(paid))
+	require.Equal(t, []string{"https://daily.example"}, resolveAntigravityQuotaBaseURLs(paid))
 
 	free := &Account{Platform: PlatformAntigravity, Credentials: map[string]any{"plan_type": "free"}}
 	require.Equal(t, []string{"https://prod.example"}, resolveAntigravityQuotaBaseURLs(free))
 
 	t.Setenv(antigravityForwardBaseURLEnv, "daily")
-	require.Equal(t, []string{"https://daily.example", "https://prod.example"}, resolveAntigravityQuotaBaseURLs(free))
+	require.Equal(t, []string{"https://daily.example"}, resolveAntigravityQuotaBaseURLs(free))
 
 	t.Setenv(antigravityForwardBaseURLEnv, "prod")
 	require.Equal(t, []string{"https://prod.example"}, resolveAntigravityQuotaBaseURLs(paid))
@@ -477,7 +477,13 @@ func TestFetchQuota_QuotaSummaryFailureKeepsCatalogQuota(t *testing.T) {
 	}))
 	defer server.Close()
 
-	withAntigravityQuotaBaseURLs(t, server.URL)
+	var prodCalls int
+	prod := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		prodCalls++
+		_, _ = io.WriteString(w, agqSummaryBody)
+	}))
+	defer prod.Close()
+	withAntigravityQuotaBaseURLs(t, prod.URL, server.URL)
 
 	fetcher := NewAntigravityQuotaFetcher(nil, &config.Config{})
 	result, err := fetcher.FetchQuota(context.Background(), &Account{
@@ -489,6 +495,8 @@ func TestFetchQuota_QuotaSummaryFailureKeepsCatalogQuota(t *testing.T) {
 		},
 	}, "")
 	require.NoError(t, err, "配额摘要失败必须降级而不影响主流程")
+	require.Zero(t, prodCalls, "daily 配额摘要失败不能回退到 prod 配额")
+	require.Empty(t, result.UsageInfo.AntigravityQuotaGroups)
 	require.NotNil(t, result.UsageInfo)
 	require.Equal(t, 0, result.UsageInfo.AntigravityQuota["gemini-3-pro-high"].Utilization)
 	require.Equal(t, "PRO", result.UsageInfo.SubscriptionTier)
